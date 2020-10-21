@@ -21,7 +21,10 @@ namespace otest
         {
             runTests<T...>();
 
-            std::cout << "Tests run: " << testsRun << '\n';
+            if (!failedTests)
+                std::cout << "Success, tests run: " << testsRun << ", assertions: " << assertions << '\n';
+            else
+                std::cout << "Failure, tests run: " << testsRun << ", assertions: " << assertions << ", test failed: " << failedTests << '\n';
 
             return failedTests ? EXIT_FAILURE : EXIT_SUCCESS;
         }
@@ -31,7 +34,9 @@ namespace otest
         {
             T0 t;
 
-            ++testsRun;
+            testsRun += t.testsRun;
+            failedTests += t.failedTests;
+            assertions += t.assertions;
         }
 
         template <class T0, class T1, class ...Tn>
@@ -41,11 +46,14 @@ namespace otest
 
             runTests<T1, Tn...>();
 
-            ++testsRun;
+            testsRun += t.testsRun;
+            failedTests += t.failedTests;
+            assertions += t.assertions;
         }
 
         std::size_t testsRun = 0;
         std::size_t failedTests = 0;
+        std::size_t assertions = 0;
     };
 
     template <class ...T> int runTests(int argc, const char* argv[])
@@ -59,9 +67,6 @@ namespace otest
     {
         template <class ...> friend class TestRunner;
     protected:
-
-        using TestFunction = void(TestContainer::*)();
-
         TestCase() = default;
 
         template <class Function>
@@ -74,6 +79,7 @@ namespace otest
         void run(const std::string& name, const std::string& tag, const Function& function)
         {
             currentTest = TestInstance{};
+            ++testsRun;
 
             try
             {
@@ -83,24 +89,37 @@ namespace otest
             }
             catch (std::exception& e)
             {
+                ++failedTests;
                 std::cerr << e.what() << '\n';
             }
             catch (...)
             {
+                ++failedTests;
             }
         }
 
         void expect(bool condition)
         {
+            ++assertions;
             ++currentTest.assertions;
-            if (!condition) ++currentTest.errors;
-            throw TestError("Failed");
+
+            if (!condition)
+            {
+                ++errors;
+                ++currentTest.errors;
+                throw TestError("Failed");
+            }
         }
 
         void check(bool condition)
         {
+            ++assertions;
             ++currentTest.assertions;
-            if (!condition) ++currentTest.errors;
+            if (!condition)
+            {
+                ++errors;
+                ++currentTest.errors;
+            }
         }
 
     private:
@@ -118,6 +137,10 @@ namespace otest
         };
 
         TestInstance currentTest;
+        std::size_t testsRun = 0;
+        std::size_t failedTests = 0;
+        std::size_t errors = 0;
+        std::size_t assertions = 0;
     };
 }
 
